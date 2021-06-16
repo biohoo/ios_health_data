@@ -2,15 +2,15 @@ from datetime import timedelta
 from xml.dom import minidom
 import matplotlib.pyplot as plt
 import pandas as pd
-import os
-import datetime
 
+import ios_health_app_data_explorer.health_utilities.file_helpers as fh
 
 '''Colors'''
 DARK_BLUE = '#22336c'
 LIGHT_BLUE = '#8899d2'
 BLUE = '#3a55b4'
 
+IOS_XML_FILE = 'export.xml'
 
 '''Redefining a few iOS categories
 NOTE: For the scale i'm using, 'lean' is technically 'muscle mass (lbs)'.
@@ -56,7 +56,7 @@ def output_weight(recordlist, figureNumber, plotThis=True):
 
         plot_annotations(plt)
         plt.title('Weight (lbs) over Time')
-
+        plt.savefig('Weight (lbs) over Time')
         plt.draw()
 
     return list(zip(x, y))
@@ -78,7 +78,7 @@ def output_fat(recordlist, figureNumber, plotThis=True):
 
         plot_annotations(plt)
         plt.title('Body Fat percent over Time')
-
+        plt.savefig('Body Fat Percent Over Time')
         plt.draw()
 
     return list(zip(x, y))
@@ -104,7 +104,7 @@ def output_lean(recordlist, figureNumber, plotThis=True):
 
         plot_annotations(plt)
         plt.title('Muscle Mass percent over Time')
-
+        plt.savefig('Muscle Mass Percent Over Time', size=100)
         plt.draw()
 
     return list(zip(x, y))
@@ -129,7 +129,7 @@ def output_sleep(recordlist, figureNumber, plotThis=True):
 
         plot_annotations(plt)
         plt.title('Sleep over Time')
-
+        plt.savefig('Sleep over Time')
         plt.draw()
 
     return list(zip(x, y))
@@ -190,6 +190,8 @@ def plot_dictionary(figureNumber, title, dictionary):
     axis.plot([i[0] for i in DictToList], [i[1] for i in DictToList])
     plot_annotations(fig)
     axis.title(title)
+    
+    plt.savefig(title)
 
 
 def generate_iterable(recordlist, TypeIndex, isDict=True, isSleep=False):
@@ -280,11 +282,12 @@ def plot_annotations(plot):
                    '9/1/2015': 'Culver City',
                    '9/11/2016': 'Married',
                    '7/20/2017': 'Westlake Village',
-                   '1/8/2018':'Diet/Exercise Improvement / Food Tracking'
+                   '1/8/2018':'Diet/Exercise\n Improvement / \nFood Tracking',
+                   '4/1/2021':'(Restart) Diet\n and food tracking\n after pandemic'
                    }
 
     for date, annotation in annotations.items():
-        plot.text(pd.to_datetime(date) + timedelta(days=10), y_max * 0.95, annotation, rotation=90)
+        plot.text(pd.to_datetime(date) + timedelta(days=10), y_max * 0.80, annotation, rotation=90)
         plot.axvline(x=pd.to_datetime(date))
 
 
@@ -338,53 +341,17 @@ def summarize_attributes(recordlist):
             print(statement)
             f.write(statement+'\n')
 
-re_import_data = False
 
-
-#   Based on the source file's modification date, determines if re-import of data is necessary.
-#   If you require re-import of data from an older file, manually setting the variable above is required.
-if datetime.datetime.fromtimestamp(os.path.getmtime('export.xml')) > datetime.datetime.now() + timedelta(days=-2):
-    print('The file is newer than 2 days.  Re-importing data.')
-    print(str(datetime.datetime.fromtimestamp(os.path.getmtime('export.xml'))))
-    re_import_data = True
-else:
-    print('Healthkit xml data not re-parsed.\nFile is older than 2 days.  Relying on csv data.')
-
-
-if __name__ == '__main__':
-
-    if re_import_data == True:
-
-        #   Return raw data and summarize count of records.
-        data = parse_ios_data('export.xml')
-        summarize_attributes(data)
-
-        #   Export csv files from these functions, naming the files according to the function names.
-        for f in [output_weight, output_fat, output_flights, output_pedometer, output_sleep, output_lean]:
-            output_csv(f(data,1,plotThis=False),title=str(f.__name__))
-
-        #   Plot these functions.
-        figureCounter = 1
-        for f in [output_weight, output_fat]:
-            f(data, figureCounter)
-            figureCounter += 1
-
-        plt.show()
-
-
-
-
+def graph_workout_progress():
     fat = pd.read_csv('output_fat.csv')
     weight = pd.read_csv('output_weight.csv')
     lean = pd.read_csv('output_lean.csv')
 
-    aggregate = weight.join(fat.set_index('Date'),lsuffix='_Weight',rsuffix='_Fat', on='Date')
-
-    aggregate = aggregate.join(lean.set_index('Date'),rsuffix='_Lean', lsuffix='_Lean', on='Date')
+    aggregate = weight.join(fat.set_index('Date'), lsuffix='_Weight', rsuffix='_Fat', on='Date')
+    aggregate = aggregate.join(lean.set_index('Date'), rsuffix='_Lean', lsuffix='_Lean', on='Date')
     aggregate['Date'] = pd.to_datetime(aggregate['Date'])
-    aggregate.columns = ['Date','Weight','Fat','Lean']
-    aggregate['Lean'] = (aggregate['Lean'] / aggregate['Weight']) * 100 #   Convert to percentage of weight.
-
+    aggregate.columns = ['Date', 'Weight', 'Fat', 'Lean']
+    aggregate['Lean'] = (aggregate['Lean'] / aggregate['Weight']) * 100  # Convert to percentage of weight.
 
     def make_patch_spines_invisible(ax):
         ax.set_frame_on(True)
@@ -392,12 +359,11 @@ if __name__ == '__main__':
         for sp in ax.spines.values():
             sp.set_visible(False)
 
-
     fig, ax1 = plt.subplots()
     fig.subplots_adjust(right=0.75)
     plt.title('Workout Progress')
     plt.xticks(rotation='45')
-    ax1.plot(aggregate['Date'], aggregate['Weight'], '.',color=LIGHT_BLUE)
+    ax1.plot(aggregate['Date'], aggregate['Weight'], '.', color=LIGHT_BLUE)
     ax1.set_xlabel('Date')
 
     # Make the y-axis label, ticks and tick labels match the line color.
@@ -406,12 +372,10 @@ if __name__ == '__main__':
 
     '''body fat axis'''
 
-
     ax2 = ax1.twinx()
-    ax2.plot(aggregate['Date'], aggregate['Fat']*100, 'o',color=DARK_BLUE)
+    ax2.plot(aggregate['Date'], aggregate['Fat'] * 100, 'o', color=DARK_BLUE, alpha=0.5)
     ax2.set_ylabel('Body Fat (%)', color=DARK_BLUE)
     ax2.tick_params('y', colors=DARK_BLUE)
-
 
     ax3 = ax1.twinx()
     # Offset the right spine of par2.  The ticks and label have already been
@@ -427,8 +391,36 @@ if __name__ == '__main__':
     '''muscle mass axis'''
 
     ax3.plot(aggregate['Date'], aggregate['Lean'], 'o', color='Red')
-    ax3.set_ylabel('Muscle (%)', color='Red')
-    ax3.set_ylim([40,42])
+    ax3.set_ylabel('Lean (%)', color='Red')
     ax3.tick_params('y', colors='Red')
 
+    plt.savefig('Workout Progress')
     plt.show()
+
+
+
+
+re_import_data = fh.is_new_file()
+
+
+if __name__ == '__main__':
+
+    if re_import_data == True:
+
+        #   Return raw data and summarize count of records.
+        data = parse_ios_data(IOS_XML_FILE)
+        summarize_attributes(data)
+
+        #   Export csv files from these functions, naming the files according to the function names.
+        for f in [output_weight, output_fat, output_flights, output_pedometer, output_sleep, output_lean]:
+            output_csv(f(data,1,plotThis=False),title=str(f.__name__))
+
+        #   Plot these functions.
+        figureCounter = 1
+        for f in [output_weight, output_fat]:
+            f(data, figureCounter)
+            figureCounter += 1
+
+
+
+    graph_workout_progress()

@@ -15,6 +15,8 @@ https://dash.plot.ly/datatable/interactivity
 
 fat_data = pd.read_csv('output_fat.csv')
 
+print(fat_data.columns)
+
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -29,10 +31,7 @@ app.layout = html.Div(children=[
     dcc.Graph(
         id='example-graph',
         figure={
-            'data': [
-                {'x': [1, 2, 3], 'y': [4, 1, 2], 'type': 'bar', 'name': 'SF'},
-                {'x': [1, 2, 3], 'y': [2, 4, 5], 'type': 'bar', 'name': u'Montréal'},
-            ],
+            'data': fat_data.to_dict(),
             'layout': {
                 'title': 'Dash Data Visualization'
             }
@@ -46,6 +45,8 @@ app.layout = html.Div(children=[
             elements=[
                 {'data': {'id': 'one', 'label': 'Node 1'}, 'position': {'x': 75, 'y': 75}},
                 {'data': {'id': 'two', 'label': 'Node 2'}, 'position': {'x': 200, 'y': 200}},
+                {'data': {'id': 'three', 'label': 'Node 3'}, 'position': {'x': 100, 'y': 200}},
+                {'data': {'id': 'four', 'label': 'Node 4'}, 'position': {'x': 250, 'y': 200}},
                 {'data': {'source': 'one', 'target': 'two'}}
             ]
         ),
@@ -54,7 +55,7 @@ app.layout = html.Div(children=[
 
     dash_table.DataTable(
         id='table',
-        columns=[{"name": i, "id": i,"deletable": True, "selectable": True} for i in fat_data.columns],
+        columns=[{"name": i, "id": i,"deletable": True, "selectable": True} for i in ['Date','Value']],
         data=fat_data.to_dict('records'),
         sort_action='native',
         column_selectable="single"
@@ -62,7 +63,7 @@ app.layout = html.Div(children=[
 ])
 
 
-
+'''
 @app.callback(
     Output('table', 'style_data_conditional'),
     [Input('table', 'selected_columns')]
@@ -72,7 +73,7 @@ def update_styles(selected_columns):
         'if': { 'column_id': i },
         'background_color': '#ffd2d2'
     } for i in selected_columns]
-
+'''
 
 if __name__ == '__main__':
     app.run_server(debug=True)
