@@ -1,47 +1,47 @@
 import xml.etree.ElementTree as ET
 import pandas as pd
 import matplotlib.pyplot as plt
-import dateutil
-import datetime
 from xml.etree.ElementTree import ElementTree
-from mpl_toolkits.mplot3d import Axes3D
+from pandas.plotting import (register_matplotlib_converters as register)
 
-
-from pandas.tseries import converter
-converter.register()
-
+register()
 
 re_parse_xml = True    #   So we're not re-parsing the original huge XML file...
 
+INPUT_FILE = 'apple_health_export/export.xml'
 
-'''
-Remove all instances of "was user entered" metadata.
-This falsely inputs '1' if this is true, and overwrites the subsequent 'value' nodes below...
-'''
-tree = ElementTree()
-tree.parse('export.xml')
+def remove_user_entered_data(input_file=INPUT_FILE):
+    '''
+    Remove all instances of "was user entered" metadata.
+    This falsely inputs '1' if this is true, and overwrites the subsequent 'value' nodes below...
+    '''
 
-foos = tree.findall('Record')
-for foo in foos:
-  bars = foo.findall('MetadataEntry')
-  for bar in bars:
-    foo.remove(bar)
-tree.write('export.xml')
+    tree = ElementTree()
+    tree.parse(input_file)
+
+    xml_records = tree.findall('Record')
+
+    for xml_record in xml_records:
+        user_entries = xml_record.findall('MetadataEntry')
+        for user_single_entry in user_entries:
+            print(f'removing {user_single_entry.text}')
+            xml_record.remove(user_single_entry)
+
+    tree.write(input_file)
+
+remove_user_entered_data()
 
 
+def open_and_read_file(file):
+    with open(file) as f:
+        result = f.read()
+        return result
 
 
 def parse_xml_output_csv():
-    def open_xml(file):
-        with open(file) as f:
-            result = f.read()
-            return result
 
-
-
-    xml_data = 'export.xml'
-
-    xml_data = open_xml(xml_data)
+    xml_data = INPUT_FILE
+    xml_data = open_and_read_file(xml_data)
 
 
     class XML2DataFrame:
@@ -79,8 +79,6 @@ if re_parse_xml:
 
 #   Read in formatted csv file and convert datetime column types
 xml_dataframe = pd.read_csv('pandas_dataframe.csv')
-
-
 
 pd.to_numeric(xml_dataframe['value'], errors='coerce')
 pd.to_datetime(xml_dataframe['startDate'], errors='coerce')
@@ -122,17 +120,7 @@ pivoted.to_csv('pivoted.csv')
 
 
 print(pivoted.dtypes)
-'''
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(pivoted['startDate'], pivoted['HKQuantityTypeIdentifierBodyFatPercentage'], pivoted['HKQuantityTypeIdentifierLeanBodyMass'])
 
-ax.set_xlabel('Date')
-ax.set_ylabel('Body Fat %')
-ax.set_zlabel('Muscle %')
-
-plt.show()
-'''
 groups = xml_dataframe.groupby('type')
 
 # Plot
@@ -147,4 +135,4 @@ def plot_this():
     ax.legend()
     plt.show()
 
-#plot_this()
+plot_this()

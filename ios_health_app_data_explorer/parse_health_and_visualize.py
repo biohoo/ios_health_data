@@ -4,14 +4,24 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import numpy as np
+from pathlib import Path
+import os
 
 import ios_health_app_data_explorer.health_utilities.file_helpers as fh
+import unzip_and_move_ios_health as uzip
 
+
+DOWNLOADS_EXTRACT = str(Path.home() / "Downloads/export.zip")
 OUTPUT_PICKLE = "full_output.pickle"
-
-IOS_XML_FILE = 'export.xml'
-
+IOS_XML_FILE = 'apple_health_export/export.xml'
 WIDTH, HEIGHT = (15,9)
+
+if not os.path.exists(DOWNLOADS_EXTRACT):
+    print("Unable to find downloaded .zip file.  Reverting to stored export.xml data.")
+else:
+    if fh.is_new_file(DOWNLOADS_EXTRACT):
+        print('Unzipping from downloads and exporting to current working directory.')
+        uzip.extract_and_move_healthkit_data()
 
 def plot_annotations(plot, start_date="2000"):
     '''
@@ -31,13 +41,13 @@ def plot_annotations(plot, start_date="2000"):
                    '9/1/2015': 'Culver City',
                    '9/11/2016': 'Married',
                    '7/20/2017': 'Westlake Village',
-                   '1/8/2018':'Diet/Exercise\n Improvement / \nFood Tracking',
-                   '4/1/2021':'(Restart) Diet\n and food tracking\n after pandemic'
+                   '1/8/2018':'Diet',
+                   '4/1/2021':'Diet'
                    }
 
     for date, annotation in annotations.items():
         if pd.to_datetime(date) > datetime.datetime.strptime(start_date, "%Y"):
-            plot.text(pd.to_datetime(date) + timedelta(days=10), y_max * 0.87, annotation, rotation=90)
+            plot.text(pd.to_datetime(date) + timedelta(days=10), y_max * 0.90, annotation, rotation=90)
             plot.axvline(x=pd.to_datetime(date))
 
 def weight_plot(dataframe, feature='HKQuantityTypeIdentifierBodyMass'):
@@ -74,22 +84,38 @@ def body_fat_plot(dataframe, feature='HKQuantityTypeIdentifierBodyFatPercentage'
     plot_annotations(plt, start_date="2016")
     plt.savefig("plots/body_fat_plot.png")
 
-def heart_rate_plot(dataframe, feature='HKQuantityTypeIdentifierHeartRate'):
+def heart_rate_boxplot(dataframe, feature='HKQuantityTypeIdentifierHeartRate'):
     f, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
-    dataframe['month_year'] = pd.to_datetime(dataframe['start_date']).dt.to_period('M')
-    sns.boxplot(x="month_year", y="value",
+    dataframe['month_year'] = pd.to_datetime(dataframe['start_date']).dt.to_period('Y') # 'M' for month, 'Y' for year...
+    sns.violinplot(x="month_year", y="value",
                 data=dataframe[dataframe['type'] == feature])
 
-    plt.title('Heart Rate over Time')
+    plt.title('Annual Heart Rate')
     plt.xlabel('Date')
     plt.ylabel('Heart Rate')
     plt.xticks(rotation=45)
-    plt.savefig("plots/heart_rate_plot.png")
+    plt.savefig("plots/heart_rate_boxplot.png")
+
+def body_fat_boxplot(dataframe, feature='HKQuantityTypeIdentifierBodyFatPercentage'):
+    f, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
+    dataframe['month_year'] = pd.to_datetime(dataframe['start_date']).dt.to_period(
+        'Y')  # 'M' for month, 'Y' for year...
+    sns.violinplot(x="month_year", y="value",
+                data=dataframe[dataframe['type'] == feature])
+
+    plt.title('Annual Body Fat Percentage')
+    plt.xlabel('Date')
+    plt.ylabel('Body Fat Percentage')
+    plt.xticks(rotation=45)
+    plt.savefig("plots/body_fat_boxplot.png")
+
 
 def generate_all_plots(dataframe):
-    heart_rate_plot(dataframe)
+    heart_rate_boxplot(dataframe)
+    body_fat_boxplot(dataframe)
     body_fat_plot(dataframe)
     weight_plot(dataframe)
+
 
     plt.show()
 
@@ -106,7 +132,10 @@ def parse_full_file():
         if type in ['HKQuantityTypeIdentifierBodyMass',
                     'HKQuantityTypeIdentifierHeartRate',
                     'HKQuantityTypeIdentifierBodyFatPercentage',
-                    'HKQuantityTypeIdentifierBodyMassIndex']:
+                    'HKQuantityTypeIdentifierBodyMassIndex',
+                    'HKQuantityTypeIdentifierBloodPressureSystolic',
+                    'HKQuantityTypeIdentifierBloodPressureDiastolic'
+                    ]:
 
             to_append = [type, start_date, value]
             a_series = pd.Series(to_append, index=df.columns)
@@ -127,11 +156,9 @@ def parse_full_file():
 
 if __name__ == '__main__':
 
-    if fh.is_new_file(days=-1, filename=IOS_XML_FILE):
+    if fh.is_new_file(days=4, filename=IOS_XML_FILE):
         parse_full_file()
 
-    else:
-        df = pd.read_pickle(OUTPUT_PICKLE)
-        generate_all_plots(df)
-        df.to_csv('test_output.csv')
-
+    df = pd.read_pickle(OUTPUT_PICKLE)
+    generate_all_plots(df)
+    df.to_csv('test_output.csv')
