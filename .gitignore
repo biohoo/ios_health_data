@@ -1,0 +1,8 @@
+*.csv
+*.pickle
+*.xml
+*.ipynb
+.DS_Store
+__pycache__
+plots
+*.png
